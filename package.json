@@ -1,0 +1,21 @@
+{
+  "name": "api-client",
+  "version": "0.0.1",
+  "description": "Shutterstock API Client",
+  "main": "auth.js",
+  "private": true,
+  "dependencies": {
+    "open": "0.0.5",
+    "request": "^2.39.0",
+    "prompt": "^0.2.13"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git@github.shuttercorp.net:tbeck/api-client.git"
+  },
+  "author": "Travis Beck <travis@shutterstock.com>",
+  "license": "Proprietary"
+}
