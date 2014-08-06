@@ -8,16 +8,16 @@ var prompt   = require('prompt');
 var util     = require('util');
 
 // TODO: better scopes handling
-// TODO: impersonation
 // TODO: swagger integration
 
-var Auth = function() {
-  this.host          = process.env.HOST || 'accounts.shutterstock.com';
-  this.port          = process.env.PORT || 3003;
-  this.client_id     = process.env.CLIENT;
-  this.client_secret = process.env.SECRET;
-  this.config_file   = process.env.AUTH_FILE || '.' + (process.env.HOST ? host : 'shutterstock') + '.json';
-  this.debug         = process.env.DEBUG || false;
+var Auth = function(options) {
+  if (!options) options = {};
+  this.host          = options.host || 'accounts.shutterstock.com';
+  this.port          = options.port || 3003;
+  this.client_id     = options.client_id;
+  this.client_secret = options.client_secret;
+  this.config_file   = options.config_file || '.' + (options.host ? options.host : 'shutterstock') + '.json';
+  this.debug         = options.debug || false;
   return this;
 };
 
@@ -64,11 +64,11 @@ Auth.prototype.authorize_manually = function(callback) {
     self.client_id = result.client_id;
     self.client_secret = result.client_secret;
     console.error('Opening browser window to login manually...');
-    self.request_authorization(callback);
+    self.request_authorization(null, callback);
   });
 }
 
-Auth.prototype.request_authorization = function(callback) {
+Auth.prototype.request_authorization = function(auth_url, callback) {
   var self = this;
   var sockets = [];
 
@@ -84,19 +84,22 @@ Auth.prototype.request_authorization = function(callback) {
         if (token_data) {
           fs.writeFile(self.config_file, JSON.stringify(token_data, undefined, 2), function(err) {
             console.error('Token data written to: ' + self.config_file);
-
-            // close opened sockets and the server
-            for (var i = 0; i < sockets.length; i++) {
-              sockets[i].destroy();
-            }
-            server.close(function() { console.error('Server stopped') });
             callback(token_data);
           });
         } else {
           callback();
         }
       });
+    } else if (params.pathname == '/zoom') {
+      callback();
     }
+    res.on('finish', function() {
+      // close opened sockets and the server
+      for (var i = 0; i < sockets.length; i++) {
+        sockets[i].destroy();
+      }
+      server.close(function() { console.error('Server stopped') });
+    });
     res.writeHead(200, { 'Content-Type': 'text/html' });
     res.end("<html><head><script>setTimeout(function(){window.open('','_self','');window.close()},10)</script></head><body>You may close this window.</body></html>");
   }).listen(self.port);
@@ -104,7 +107,7 @@ Auth.prototype.request_authorization = function(callback) {
 
   console.error('Server running at http://localhost:' + self.port + '/');
 
-  var authorize_url = url.format({
+  var authorize_url = auth_url || url.format({
     protocol: 'https',
     host: self.host,
     pathname: '/oauth/authorize',
@@ -131,7 +134,7 @@ Auth.prototype.refresh_access_token = function(refresh_token, callback) {
         callback(token_data);
       });
     } else {
-      console.log('Refresh token failed: ' + err);
+      console.error('Refresh token failed: ' + err);
       self.authorize_manually(callback);
     }
   });
@@ -154,10 +157,10 @@ Auth.prototype.request_access_token = function(form_data, callback) {
       if (self.debug) {
         console.error('Unexpected response getting access token');
         console.error('REQUEST:\n\n' + response.request.method + ' ' + response.request.uri.href);
-        Object.keys(response.request.headers).forEach(function(key) { console.log(key + ': ' + response.request.headers[key]) });
+        Object.keys(response.request.headers).forEach(function(key) { console.error(key + ': ' + response.request.headers[key]) });
         console.error("\n" + response.request.body + "\n");
         console.error('RESPONSE:\n\nHTTP/' + response.httpVersion + ' ' + response.statusCode);
-        Object.keys(response.headers).forEach(function(key) { console.log(key + ': ' + response.headers[key]) });
+        Object.keys(response.headers).forEach(function(key) { console.error(key + ': ' + response.headers[key]) });
         console.error("\n" + body + "\n");
       }
       return callback(body);
@@ -165,8 +168,17 @@ Auth.prototype.request_access_token = function(form_data, callback) {
   });
 }
 
+module.exports = Auth;
+
 if (require.main === module) {
-  var auth = new Auth();
+  var auth = new Auth({
+    host:          process.env.HOST,
+    port:          process.env.PORT,
+    client_id:     process.env.CLIENT,
+    client_secret: process.env.SECRET,
+    config_file:   process.env.AUTH_FILE,
+    debug:         process.env.DEBUG,
+  });
   auth.get_access_token(function(token_data) {
     if (token_data.access_token) console.log(token_data.access_token);
   });
