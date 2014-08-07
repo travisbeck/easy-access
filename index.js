@@ -18,15 +18,14 @@ var providers   = require('./providers');
 // TODO: better error handling
 
 var EasyAccess = function(provider, original_options) {
-  var options = original_options;
+  var options = original_options || {};
   if (provider && providers[provider]) options = lodash.merge(providers[provider], options);
-  if (!options) options = {};
   this.host          = options.host || 'accounts.shutterstock.com';
   this.port          = options.port || 3003;
   this.client_id     = options.client_id;
   this.client_secret = options.client_secret;
   this.client_grant  = options.client_grant || false;
-  this.config_file   = options.config_file || '.easy-access-' + (original_options.host ? options.host : provider) + '.json';
+  this.config_file   = options.config_file || '.easy-access-' + (original_options && original_options.host ? options.host : provider) + '.json';
   this.debug         = options.debug || false;
   this.scope         = options.scope;
   this.authorize_endpoint = options.authorize_endpoint || '/oauth/authorize';
