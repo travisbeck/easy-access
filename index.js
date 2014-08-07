@@ -12,14 +12,13 @@ var providers   = require('./providers');
 
 // TODO: swagger integration
 // TODO: client credentials grants
-// TODO: make it into a command-line utility
+// TODO: make it into a command-line utility (using nomnom or minimist)
 // TODO: move impersonate code
-// TODO: rename everything to easy-access
 // TODO: incremental scope authorization
 // TODO: write tests
 // TODO: better error handling
 
-var Auth = function(provider, options) {
+var EasyAccess = function(provider, options) {
   // TODO: this should merge, not clobber
   if (provider && providers[provider]) options = providers[provider];
   if (!options) options = {};
@@ -35,7 +34,7 @@ var Auth = function(provider, options) {
   return this;
 };
 
-Auth.prototype.load = function(callback) {
+EasyAccess.prototype.load = function(callback) {
   var self = this;
   fs.readFile(self.config_file, function(err, data) {
     if (data) {
@@ -49,7 +48,7 @@ Auth.prototype.load = function(callback) {
   });
 }
 
-Auth.prototype.get_access_token = function(callback) {
+EasyAccess.prototype.get_access_token = function(callback) {
   var self = this;
   self.load(function(file_data) {
     if (file_data.access_token && file_data.expiration && file_data.expiration > Date.now() + 60 * 5 * 1000) {
@@ -66,7 +65,7 @@ Auth.prototype.get_access_token = function(callback) {
   });
 }
 
-Auth.prototype.authorize_manually = function(callback) {
+EasyAccess.prototype.authorize_manually = function(callback) {
   var self = this;
   if (!Boolean(process.stdin.isTTY) || !Boolean(process.stdout.isTTY)) {
     console.error("Not connected to an interactive terminal, can't request manual authorization through the browser. Unable to continue.");
@@ -85,7 +84,7 @@ Auth.prototype.authorize_manually = function(callback) {
   });
 }
 
-Auth.prototype.request_authorization = function(callback) {
+EasyAccess.prototype.request_authorization = function(callback) {
   var self = this;
   var authorize_url = url.format({
     protocol: 'https',
@@ -99,7 +98,7 @@ Auth.prototype.request_authorization = function(callback) {
     }
   });
 
-  Auth.single_use_web_server(self.port, authorize_url, function(params) {
+  EasyAccess.single_use_web_server(self.port, authorize_url, function(params) {
     if (params.pathname == '/' && params.query.code) {
       self.request_access_token({
         client_id: self.client_id,
@@ -119,7 +118,7 @@ Auth.prototype.request_authorization = function(callback) {
 }
 
 // spin up a disposable web server for redirecting a browser back into
-Auth.single_use_web_server = function(port, browser_url, callback) {
+EasyAccess.single_use_web_server = function(port, browser_url, callback) {
   var sockets = [];
   var server = http.createServer(function (req, res) {
     var params = url.parse(req.url, true);
@@ -138,7 +137,7 @@ Auth.single_use_web_server = function(port, browser_url, callback) {
   open(browser_url);
 }
 
-Auth.prototype.refresh_access_token = function(refresh_token, callback) {
+EasyAccess.prototype.refresh_access_token = function(refresh_token, callback) {
   var self = this;
   self.request_access_token({
     client_id: self.client_id,
@@ -155,7 +154,7 @@ Auth.prototype.refresh_access_token = function(refresh_token, callback) {
   });
 }
 
-Auth.prototype.request_access_token = function(form_data, callback) {
+EasyAccess.prototype.request_access_token = function(form_data, callback) {
   var self = this;
   request.post('https://' + self.host + self.token_endpoint, { form: form_data, headers: { Accept: 'application/json,application/x-www-form-urlencoded' } }, function(error, response, body) {
     if (error) {
@@ -196,11 +195,11 @@ Auth.prototype.request_access_token = function(form_data, callback) {
   });
 }
 
-module.exports = Auth;
+module.exports = EasyAccess;
 
 if (require.main === module) {
   var provider = process.argv[2];
-  var auth = new Auth(provider, {
+  var easy_access = new EasyAccess(provider, {
     host:          process.env.HOST,
     port:          process.env.PORT,
     client_id:     process.env.CLIENT,
@@ -211,7 +210,7 @@ if (require.main === module) {
     authorize_endpoint: process.env.AUTHORIZE_ENDPOINT,
     token_endpoint: process.env.TOKEN_ENDPOINT,
   });
-  auth.get_access_token(function(token_data) {
+  easy_access.get_access_token(function(token_data) {
     if (token_data && token_data.access_token) console.log(token_data.access_token);
   });
 }

@@ -1,8 +1,8 @@
 {
-  "name": "api-client",
+  "name": "easy-access",
   "version": "0.0.1",
-  "description": "Shutterstock API Client",
-  "main": "auth.js",
+  "description": "Ridiculously easy OAuth2 authentication for scripts/installed apps and from the command-line for multiple providers",
+  "main": "index.js",
   "private": true,
   "dependencies": {
     "open": "0.0.5",
@@ -15,6 +15,9 @@
   "repository": {
     "type": "git",
     "url": "git@github.shuttercorp.net:tbeck/api-client.git"
+  },
+  "bin": {
+    "easy_access" : "index.js"
   },
   "author": "Travis Beck <travis@shutterstock.com>",
   "license": "Proprietary"
