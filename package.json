@@ -1,6 +1,6 @@
 {
   "name": "easy-access",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Ridiculously easy OAuth2 authentication for scripts/installed apps and from the command-line for multiple providers",
   "main": "index.js",
   "private": true,
