@@ -76,6 +76,12 @@ EasyAccess.prototype.authorize_manually = function(callback) {
     return callback();
   }
 
+  if (!self.client_id) {
+    console.log('Authenticating manually against ' + self.host);
+    console.log("If you don't have a client_id and client_secret, please visit the site and get one");
+    console.log("Make sure that your callback url is pointing to 'localhost' or 'http://localhost:" + self.port + '/');
+  }
+
   prompt.override = self
   prompt.message = '';
   prompt.delimiter = '';
