@@ -1,26 +1,37 @@
+#! /usr/bin/env node
+
 'use strict';
-var http     = require('http');
-var url      = require('url');
-var open     = require('open');
-var request  = require('request');
-var fs       = require('fs');
-var prompt   = require('prompt');
-var util     = require('util');
+var http        = require('http');
+var url         = require('url');
+var querystring = require('querystring');
+var open        = require('open');
+var request     = require('request');
+var fs          = require('fs');
+var prompt      = require('prompt');
+var providers   = require('./providers');
 
 // TODO: swagger integration
 // TODO: client credentials grants
-// TODO: make it work with other oauth2 providers
+// TODO: make it into a command-line utility
+// TODO: move impersonate code
+// TODO: rename everything to easy-access
+// TODO: incremental scope authorization
+// TODO: write tests
+// TODO: better error handling
 
-var Auth = function(options) {
+var Auth = function(provider, options) {
+  // TODO: this should merge, not clobber
+  if (provider && providers[provider]) options = providers[provider];
   if (!options) options = {};
   this.host          = options.host || 'accounts.shutterstock.com';
   this.port          = options.port || 3003;
   this.client_id     = options.client_id;
   this.client_secret = options.client_secret;
-  this.config_file   = options.config_file || '.' + (options.host ? options.host : 'shutterstock') + '.json';
+  this.config_file   = options.config_file || '.easy-access-' + this.host + '.json';
   this.debug         = options.debug || false;
-  // TODO: do something smarter with scopes here
-  this.scope         = options.scope || 'user.view user.email user.address user.edit organization.view organization.address collections.view collections.edit licenses.view licenses.create';
+  this.scope         = options.scope;
+  this.authorize_endpoint = options.authorize_endpoint || '/oauth/authorize';
+  this.token_endpoint = options.token_endpoint || '/oauth/access_token';
   return this;
 };
 
@@ -42,6 +53,9 @@ Auth.prototype.get_access_token = function(callback) {
   var self = this;
   self.load(function(file_data) {
     if (file_data.access_token && file_data.expiration && file_data.expiration > Date.now() + 60 * 5 * 1000) {
+      callback(file_data);
+    } else if (file_data.access_token && file_data.expiration === null) {
+      // take an existing expiration with a null value to mean 'no expiration'
       callback(file_data);
     } else if (file_data.refresh_token) {
       console.error('Using refresh token to acquire new access token...');
@@ -76,11 +90,12 @@ Auth.prototype.request_authorization = function(callback) {
   var authorize_url = url.format({
     protocol: 'https',
     host: self.host,
-    pathname: '/oauth/authorize',
+    pathname: self.authorize_endpoint,
     query: {
-      client_id:    self.client_id,
-      redirect_uri: 'http://localhost:' + self.port + '/',
-      scope:        self.scope,
+      client_id:     self.client_id,
+      redirect_uri:  'http://localhost:' + self.port + '/',
+      scope:         self.scope,
+      response_type: 'code',
     }
   });
 
@@ -91,10 +106,13 @@ Auth.prototype.request_authorization = function(callback) {
         client_secret: self.client_secret,
         grant_type: 'authorization_code',
         code: params.query.code,
+        redirect_uri:  'http://localhost:' + self.port + '/',
       }, function(err, token_data) {
         callback(token_data);
       });
     } else {
+      console.error('Unknown request:');
+      console.error(params);
       callback();
     }
   });
@@ -139,13 +157,22 @@ Auth.prototype.refresh_access_token = function(refresh_token, callback) {
 
 Auth.prototype.request_access_token = function(form_data, callback) {
   var self = this;
-  request.post('https://' + self.host + '/oauth/access_token', { form: form_data }, function(error, response, body) {
+  request.post('https://' + self.host + self.token_endpoint, { form: form_data, headers: { Accept: 'application/json,application/x-www-form-urlencoded' } }, function(error, response, body) {
     if (error) {
       console.error(error);
       return callback(error);
-    } else if (response.statusCode == 200 && response.headers['content-type'].match('^application/json')) {
-      var token_data = JSON.parse(body);
-      token_data.expiration = Date.now() + token_data.expires_in * 1000;
+    } else if (response.statusCode == 200) {
+      var token_data = {};
+      if (response.headers['content-type'].match('^application/json')) {
+        token_data = JSON.parse(body);
+      } else if (response.headers['content-type'].match('^application/x-www-form-urlencoded')) {
+        token_data = querystring.parse(body);
+      }
+      if (token_data.expires_in) {
+        token_data.expiration = Date.now() + token_data.expires_in * 1000;
+      } else {
+        token_data.expiration = null;
+      }
       token_data.client_id = form_data.client_id;
       token_data.client_secret = form_data.client_secret;
       delete token_data.expires_in;
@@ -172,7 +199,8 @@ Auth.prototype.request_access_token = function(form_data, callback) {
 module.exports = Auth;
 
 if (require.main === module) {
-  var auth = new Auth({
+  var provider = process.argv[2];
+  var auth = new Auth(provider, {
     host:          process.env.HOST,
     port:          process.env.PORT,
     client_id:     process.env.CLIENT,
@@ -180,6 +208,8 @@ if (require.main === module) {
     config_file:   process.env.AUTH_FILE,
     debug:         process.env.DEBUG,
     scope:         process.env.SCOPE,
+    authorize_endpoint: process.env.AUTHORIZE_ENDPOINT,
+    token_endpoint: process.env.TOKEN_ENDPOINT,
   });
   auth.get_access_token(function(token_data) {
     if (token_data && token_data.access_token) console.log(token_data.access_token);
