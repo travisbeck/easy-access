@@ -7,8 +7,9 @@ var fs       = require('fs');
 var prompt   = require('prompt');
 var util     = require('util');
 
-// TODO: better scopes handling
 // TODO: swagger integration
+// TODO: client credentials grants
+// TODO: make it work with other oauth2 providers
 
 var Auth = function(options) {
   if (!options) options = {};
@@ -18,6 +19,8 @@ var Auth = function(options) {
   this.client_secret = options.client_secret;
   this.config_file   = options.config_file || '.' + (options.host ? options.host : 'shutterstock') + '.json';
   this.debug         = options.debug || false;
+  // TODO: do something smarter with scopes here
+  this.scope         = options.scope || 'user.view user.email user.address user.edit organization.view organization.address collections.view collections.edit licenses.view licenses.create';
   return this;
 };
 
@@ -64,16 +67,24 @@ Auth.prototype.authorize_manually = function(callback) {
     self.client_id = result.client_id;
     self.client_secret = result.client_secret;
     console.error('Opening browser window to login manually...');
-    self.request_authorization(null, callback);
+    self.request_authorization(callback);
   });
 }
 
-Auth.prototype.request_authorization = function(auth_url, callback) {
+Auth.prototype.request_authorization = function(callback) {
   var self = this;
-  var sockets = [];
+  var authorize_url = url.format({
+    protocol: 'https',
+    host: self.host,
+    pathname: '/oauth/authorize',
+    query: {
+      client_id:    self.client_id,
+      redirect_uri: 'http://localhost:' + self.port + '/',
+      scope:        self.scope,
+    }
+  });
 
-  var server = http.createServer(function (req, res) {
-    var params = url.parse(req.url, true);
+  Auth.single_use_web_server(self.port, authorize_url, function(params) {
     if (params.pathname == '/' && params.query.code) {
       self.request_access_token({
         client_id: self.client_id,
@@ -81,43 +92,32 @@ Auth.prototype.request_authorization = function(auth_url, callback) {
         grant_type: 'authorization_code',
         code: params.query.code,
       }, function(err, token_data) {
-        if (token_data) {
-          fs.writeFile(self.config_file, JSON.stringify(token_data, undefined, 2), function(err) {
-            console.error('Token data written to: ' + self.config_file);
-            callback(token_data);
-          });
-        } else {
-          callback();
-        }
+        callback(token_data);
       });
-    } else if (params.pathname == '/zoom') {
+    } else {
       callback();
     }
+  });
+}
+
+// spin up a disposable web server for redirecting a browser back into
+Auth.single_use_web_server = function(port, browser_url, callback) {
+  var sockets = [];
+  var server = http.createServer(function (req, res) {
+    var params = url.parse(req.url, true);
+    callback(params);
     res.on('finish', function() {
-      // close opened sockets and the server
-      for (var i = 0; i < sockets.length; i++) {
-        sockets[i].destroy();
-      }
+      // close opened sockets and the server when the request is done
+      sockets.forEach(function(socket) { socket.destroy() });
       server.close(function() { console.error('Server stopped') });
     });
     res.writeHead(200, { 'Content-Type': 'text/html' });
     res.end("<html><head><script>setTimeout(function(){window.open('','_self','');window.close()},10)</script></head><body>You may close this window.</body></html>");
-  }).listen(self.port);
+  }).listen(port);
   server.on('connection', function(socket) { sockets.push(socket) });
+  console.error('Server running at http://localhost:' + port + '/');
 
-  console.error('Server running at http://localhost:' + self.port + '/');
-
-  var authorize_url = auth_url || url.format({
-    protocol: 'https',
-    host: self.host,
-    pathname: '/oauth/authorize',
-    query: {
-      client_id:    self.client_id,
-      redirect_uri: 'http://localhost:' + self.port + '/',
-      scope:        'user.view user.email user.address user.edit organization.view organization.address collections.view collections.edit licenses.view licenses.create'
-    }
-  });
-  open(authorize_url);
+  open(browser_url);
 }
 
 Auth.prototype.refresh_access_token = function(refresh_token, callback) {
@@ -129,10 +129,7 @@ Auth.prototype.refresh_access_token = function(refresh_token, callback) {
     refresh_token: refresh_token,
   }, function(err, token_data) {
     if (token_data) {
-      fs.writeFile(self.config_file, JSON.stringify(token_data, undefined, 2), function(err) {
-        console.error('Token data written to: ' + self.config_file);
-        callback(token_data);
-      });
+      callback(token_data);
     } else {
       console.error('Refresh token failed: ' + err);
       self.authorize_manually(callback);
@@ -152,7 +149,11 @@ Auth.prototype.request_access_token = function(form_data, callback) {
       token_data.client_id = form_data.client_id;
       token_data.client_secret = form_data.client_secret;
       delete token_data.expires_in;
-      return callback(null, token_data);
+
+      fs.writeFile(self.config_file, JSON.stringify(token_data, undefined, 2), function(err) {
+        console.error('Token data written to: ' + self.config_file);
+        callback(null, token_data);
+      });
     } else {
       if (self.debug) {
         console.error('Unexpected response getting access token');
@@ -178,8 +179,9 @@ if (require.main === module) {
     client_secret: process.env.SECRET,
     config_file:   process.env.AUTH_FILE,
     debug:         process.env.DEBUG,
+    scope:         process.env.SCOPE,
   });
   auth.get_access_token(function(token_data) {
-    if (token_data.access_token) console.log(token_data.access_token);
+    if (token_data && token_data.access_token) console.log(token_data.access_token);
   });
 }
