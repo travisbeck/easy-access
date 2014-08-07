@@ -15,7 +15,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git@github.shuttercorp.net:tbeck/api-client.git"
+    "url": "git@github.shuttercorp.net:tbeck/easy-access.git"
   },
   "bin": {
     "easy_access": "index.js"

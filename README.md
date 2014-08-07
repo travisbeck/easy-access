@@ -1,16 +1,26 @@
-api-client
+easy-access
 ==========
+
+Ridiculously easy OAuth2 authentication for command-line scripts and installed apps supporting multiple providers
 
 How to use:
 
-Build:
+Build / Install:
 
- rock build
+```bash
+npm install -g
+```
 
-Get a token:
+Get a token (you will be prompted for client id and secret):
 
- export SSTK_TOKEN=$(rock run node auth.js)
+```bash
+easy_access shutterstock
+```
 
-Use your token:
 
+Store and use your token:
+
+```bash
+export SSTK_TOKEN=$(easy_access shutterstock)
  curl -H "Authorization: Bearer $SSTK_TOKEN" 'https://api.shutterstock.com/v2/images/search?query=food&fields=page,per_page,total_count,data(id)' | jq .
+```
