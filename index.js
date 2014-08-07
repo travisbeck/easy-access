@@ -27,7 +27,7 @@ var EasyAccess = function(provider, original_options) {
   this.client_grant  = options.client_grant || false;
   this.config_file   = options.config_file || '.easy-access-' + (original_options && original_options.host ? options.host : provider) + '.json';
   this.debug         = options.debug || false;
-  this.no_write      = options.no_write || false;
+  this.reauthorize   = options.reauthorize || false;
   this.scope         = options.scope;
   this.authorize_endpoint = options.authorize_endpoint || '/oauth/authorize';
   this.token_endpoint = options.token_endpoint || '/oauth/access_token';
@@ -53,14 +53,14 @@ EasyAccess.prototype.get_access_token = function(callback) {
   self.load(function(file_data) {
     if (self.client_grant) {
       self.request_client_token(callback);
-    } else if (file_data.access_token && file_data.expiration && file_data.expiration > Date.now() + 60 * 5 * 1000) {
+    } else if (!self.reauthorize && file_data.access_token && file_data.expiration && file_data.expiration > Date.now() + 60 * 5 * 1000) {
       if (self.debug) console.error('Unexpired access token loaded from file');
       callback(file_data);
-    } else if (file_data.access_token && file_data.expiration === null) {
+    } else if (!self.reauthorize && file_data.access_token && file_data.expiration === null) {
       // take an existing expiration with a null value to mean 'no expiration'
       if (self.debug) console.error('Access token w/no expiration loaded from file');
       callback(file_data);
-    } else if (file_data.refresh_token) {
+    } else if (!self.reauthorize && file_data.refresh_token) {
       console.error('Using refresh token to acquire new access token...');
       self.refresh_access_token(file_data.refresh_token, callback);
     } else {
@@ -211,14 +211,10 @@ EasyAccess.prototype.request_access_token = function(form_data, callback) {
       token_data.client_secret = form_data.client_secret;
       delete token_data.expires_in;
 
-      if (self.no_write) {
+      fs.writeFile(self.config_file, JSON.stringify(token_data, undefined, 2), function(err) {
+        console.error('Token data written to: ' + self.config_file);
         callback(null, token_data);
-      } else {
-        fs.writeFile(self.config_file, JSON.stringify(token_data, undefined, 2), function(err) {
-          console.error('Token data written to: ' + self.config_file);
-          callback(null, token_data);
-        });
-      }
+      });
     } else {
       if (self.debug) {
         console.error('Unexpected response getting access token');
@@ -246,7 +242,7 @@ if (require.main === module) {
     client_grant:  process.env.CLIENT_GRANT,
     config_file:   process.env.AUTH_FILE,
     debug:         process.env.DEBUG,
-    no_write:      process.env.NO_WRITE,
+    reauthorize:   process.env.REAUTHORIZE,
     scope:         process.env.SCOPE,
     authorize_endpoint: process.env.AUTHORIZE_ENDPOINT,
     token_endpoint: process.env.TOKEN_ENDPOINT,
