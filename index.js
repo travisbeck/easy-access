@@ -27,6 +27,7 @@ var EasyAccess = function(provider, original_options) {
   this.client_grant  = options.client_grant || false;
   this.config_file   = options.config_file || '.easy-access-' + (original_options && original_options.host ? options.host : provider) + '.json';
   this.debug         = options.debug || false;
+  this.no_write      = options.no_write || false;
   this.scope         = options.scope;
   this.authorize_endpoint = options.authorize_endpoint || '/oauth/authorize';
   this.token_endpoint = options.token_endpoint || '/oauth/access_token';
@@ -86,10 +87,18 @@ EasyAccess.prototype.authorize_manually = function(callback) {
   prompt.delimiter = '';
   prompt.start();
   prompt.get([{ name: 'client_id', description: 'Enter your client id:' }, { name: 'client_secret', description: 'Enter your client secret:' }], function(err, result) {
-    self.client_id = result.client_id;
-    self.client_secret = result.client_secret;
-    console.error('Opening browser window to login manually...');
-    self.request_authorization(callback);
+    if (!self.client_id || !self.client_secret) {
+      self.client_id = result.client_id;
+      self.client_secret = result.client_secret;
+      fs.writeFile(self.config_file, JSON.stringify({ client_id: self.client_id, client_secret: self.client_secret }, undefined, 2), function(err) {
+        console.error('Token data written to: ' + self.config_file);
+        console.error('Opening browser window to login manually...');
+        self.request_authorization(callback);
+      });
+    } else {
+      console.error('Opening browser window to login manually...');
+      self.request_authorization(callback);
+    }
   });
 }
 
@@ -202,10 +211,14 @@ EasyAccess.prototype.request_access_token = function(form_data, callback) {
       token_data.client_secret = form_data.client_secret;
       delete token_data.expires_in;
 
-      fs.writeFile(self.config_file, JSON.stringify(token_data, undefined, 2), function(err) {
-        console.error('Token data written to: ' + self.config_file);
+      if (self.no_write) {
         callback(null, token_data);
-      });
+      } else {
+        fs.writeFile(self.config_file, JSON.stringify(token_data, undefined, 2), function(err) {
+          console.error('Token data written to: ' + self.config_file);
+          callback(null, token_data);
+        });
+      }
     } else {
       if (self.debug) {
         console.error('Unexpected response getting access token');
@@ -233,6 +246,7 @@ if (require.main === module) {
     client_grant:  process.env.CLIENT_GRANT,
     config_file:   process.env.AUTH_FILE,
     debug:         process.env.DEBUG,
+    no_write:      process.env.NO_WRITE,
     scope:         process.env.SCOPE,
     authorize_endpoint: process.env.AUTHORIZE_ENDPOINT,
     token_endpoint: process.env.TOKEN_ENDPOINT,
