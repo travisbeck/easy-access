@@ -17,7 +17,8 @@ var providers   = require('./providers');
 // TODO: write tests
 // TODO: better error handling
 
-var EasyAccess = function(provider, options) {
+var EasyAccess = function(provider, original_options) {
+  var options = original_options;
   if (provider && providers[provider]) options = lodash.merge(providers[provider], options);
   if (!options) options = {};
   this.host          = options.host || 'accounts.shutterstock.com';
@@ -25,7 +26,7 @@ var EasyAccess = function(provider, options) {
   this.client_id     = options.client_id;
   this.client_secret = options.client_secret;
   this.client_grant  = options.client_grant || false;
-  this.config_file   = options.config_file || '.easy-access-' + this.host + '.json';
+  this.config_file   = options.config_file || '.easy-access-' + (original_options.host ? options.host : provider) + '.json';
   this.debug         = options.debug || false;
   this.scope         = options.scope;
   this.authorize_endpoint = options.authorize_endpoint || '/oauth/authorize';
@@ -53,9 +54,11 @@ EasyAccess.prototype.get_access_token = function(callback) {
     if (self.client_grant) {
       self.request_client_token(callback);
     } else if (file_data.access_token && file_data.expiration && file_data.expiration > Date.now() + 60 * 5 * 1000) {
+      if (self.debug) console.error('Unexpired access token loaded from file');
       callback(file_data);
     } else if (file_data.access_token && file_data.expiration === null) {
       // take an existing expiration with a null value to mean 'no expiration'
+      if (self.debug) console.error('Access token w/no expiration loaded from file');
       callback(file_data);
     } else if (file_data.refresh_token) {
       console.error('Using refresh token to acquire new access token...');

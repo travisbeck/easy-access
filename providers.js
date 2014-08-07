@@ -6,6 +6,11 @@ module.exports = {
     scope: 'https://www.googleapis.com/auth/calendar.readonly',
   },
   github: {
+    host: 'github.com',
+    authorize_endpoint: '/login/oauth/authorize',
+    token_endpoint: '/login/oauth/access_token',
+  },
+  shutterstock_github: {
     host: 'github.shuttercorp.net',
     authorize_endpoint: '/login/oauth/authorize',
     token_endpoint: '/login/oauth/access_token',
