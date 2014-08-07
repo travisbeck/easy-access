@@ -5,9 +5,10 @@
   "main": "index.js",
   "private": true,
   "dependencies": {
+    "lodash": "^2.4.1",
     "open": "0.0.5",
-    "request": "^2.39.0",
-    "prompt": "^0.2.13"
+    "prompt": "^0.2.13",
+    "request": "^2.39.0"
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -17,7 +18,7 @@
     "url": "git@github.shuttercorp.net:tbeck/api-client.git"
   },
   "bin": {
-    "easy_access" : "index.js"
+    "easy_access": "index.js"
   },
   "author": "Travis Beck <travis@shutterstock.com>",
   "license": "Proprietary"

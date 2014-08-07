@@ -8,24 +8,23 @@ var open        = require('open');
 var request     = require('request');
 var fs          = require('fs');
 var prompt      = require('prompt');
+var lodash      = require('lodash');
 var providers   = require('./providers');
 
 // TODO: swagger integration
-// TODO: client credentials grants
 // TODO: make it into a command-line utility (using nomnom or minimist)
-// TODO: move impersonate code
 // TODO: incremental scope authorization
 // TODO: write tests
 // TODO: better error handling
 
 var EasyAccess = function(provider, options) {
-  // TODO: this should merge, not clobber
-  if (provider && providers[provider]) options = providers[provider];
+  if (provider && providers[provider]) options = lodash.merge(providers[provider], options);
   if (!options) options = {};
   this.host          = options.host || 'accounts.shutterstock.com';
   this.port          = options.port || 3003;
   this.client_id     = options.client_id;
   this.client_secret = options.client_secret;
+  this.client_grant  = options.client_grant || false;
   this.config_file   = options.config_file || '.easy-access-' + this.host + '.json';
   this.debug         = options.debug || false;
   this.scope         = options.scope;
@@ -51,7 +50,9 @@ EasyAccess.prototype.load = function(callback) {
 EasyAccess.prototype.get_access_token = function(callback) {
   var self = this;
   self.load(function(file_data) {
-    if (file_data.access_token && file_data.expiration && file_data.expiration > Date.now() + 60 * 5 * 1000) {
+    if (self.client_grant) {
+      self.request_client_token(callback);
+    } else if (file_data.access_token && file_data.expiration && file_data.expiration > Date.now() + 60 * 5 * 1000) {
       callback(file_data);
     } else if (file_data.access_token && file_data.expiration === null) {
       // take an existing expiration with a null value to mean 'no expiration'
@@ -137,6 +138,18 @@ EasyAccess.single_use_web_server = function(port, browser_url, callback) {
   open(browser_url);
 }
 
+EasyAccess.prototype.request_client_token = function(callback) {
+  var self = this;
+  console.error('Getting access token for client');
+  self.request_access_token({
+    client_id: self.client_id,
+    client_secret: self.client_secret,
+    grant_type: 'client_credentials',
+  }, function(err, token_data) {
+    callback(token_data);
+  });
+}
+
 EasyAccess.prototype.refresh_access_token = function(refresh_token, callback) {
   var self = this;
   self.request_access_token({
@@ -156,7 +169,12 @@ EasyAccess.prototype.refresh_access_token = function(refresh_token, callback) {
 
 EasyAccess.prototype.request_access_token = function(form_data, callback) {
   var self = this;
-  request.post('https://' + self.host + self.token_endpoint, { form: form_data, headers: { Accept: 'application/json,application/x-www-form-urlencoded' } }, function(error, response, body) {
+  request.post('https://' + self.host + self.token_endpoint, {
+      form: form_data,
+      headers: {
+        Accept: 'application/json,application/x-www-form-urlencoded'
+      }
+    }, function(error, response, body) {
     if (error) {
       console.error(error);
       return callback(error);
@@ -204,6 +222,7 @@ if (require.main === module) {
     port:          process.env.PORT,
     client_id:     process.env.CLIENT,
     client_secret: process.env.SECRET,
+    client_grant:  process.env.CLIENT_GRANT,
     config_file:   process.env.AUTH_FILE,
     debug:         process.env.DEBUG,
     scope:         process.env.SCOPE,
