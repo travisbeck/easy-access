@@ -10,33 +10,45 @@ var fs          = require('fs');
 var prompt      = require('prompt');
 var lodash      = require('lodash');
 var providers   = require('./providers');
+var opt_parser  = require("nomnom");
 
-// TODO: swagger integration
-// TODO: make it into a command-line utility (using nomnom or minimist)
 // TODO: incremental scope authorization
 // TODO: write tests
 // TODO: better error handling
+// TODO: search home directory for config file
+// TODO: integrate with more identity providers
 
 var EasyAccess = function(provider, original_options) {
   var options = original_options || {};
   if (provider && providers[provider]) options = lodash.merge(providers[provider], options);
-  this.host          = options.host || 'accounts.shutterstock.com';
+  this.host          = options.host;
   this.port          = options.port || 3003;
   this.client_id     = options.client_id;
   this.client_secret = options.client_secret;
   this.client_grant  = options.client_grant || false;
-  this.config_file   = options.config_file || '.easy-access-' + (original_options && original_options.host ? options.host : provider) + '.json';
+  this.file          = options.file || '.easy-access-' + (original_options && original_options.host ? options.host : provider) + '.json';
   this.debug         = options.debug || false;
   this.reauthorize   = options.reauthorize || false;
   this.scope         = options.scope;
-  this.authorize_endpoint = options.authorize_endpoint || '/oauth/authorize';
-  this.token_endpoint = options.token_endpoint || '/oauth/access_token';
+  this.authorize_endpoint = options.authorize_endpoint;
+  this.token_endpoint = options.token_endpoint;
+
+  var missing_required = [];
+  if (!this.host)               missing_required.push('host');
+  if (!this.authorize_endpoint) missing_required.push('authorize_endpoint');
+  if (!this.token_endpoint)     missing_required.push('token_endpoint');
+
+  if (missing_required.length > 0) {
+    var message = '';
+    missing_required.forEach(function(arg) { message = message + arg + ' is required' + '\n' });
+    throw message;
+  }
   return this;
 };
 
 EasyAccess.prototype.load = function(callback) {
   var self = this;
-  fs.readFile(self.config_file, function(err, data) {
+  fs.readFile(self.file, function(err, data) {
     if (data) {
       var config = JSON.parse(data.toString());
       self.client_id = config.client_id;
@@ -90,8 +102,8 @@ EasyAccess.prototype.authorize_manually = function(callback) {
     if (!self.client_id || !self.client_secret) {
       self.client_id = result.client_id;
       self.client_secret = result.client_secret;
-      fs.writeFile(self.config_file, JSON.stringify({ client_id: self.client_id, client_secret: self.client_secret }, undefined, 2), function(err) {
-        console.error('Token data written to: ' + self.config_file);
+      fs.writeFile(self.file, JSON.stringify({ client_id: self.client_id, client_secret: self.client_secret }, undefined, 2), function(err) {
+        console.error('Token data written to: ' + self.file);
         console.error('Opening browser window to login manually...');
         self.request_authorization(callback);
       });
@@ -211,8 +223,8 @@ EasyAccess.prototype.request_access_token = function(form_data, callback) {
       token_data.client_secret = form_data.client_secret;
       delete token_data.expires_in;
 
-      fs.writeFile(self.config_file, JSON.stringify(token_data, undefined, 2), function(err) {
-        console.error('Token data written to: ' + self.config_file);
+      fs.writeFile(self.file, JSON.stringify(token_data, undefined, 2), function(err) {
+        console.error('Token data written to: ' + self.file);
         callback(null, token_data);
       });
     } else {
@@ -233,20 +245,67 @@ EasyAccess.prototype.request_access_token = function(form_data, callback) {
 module.exports = EasyAccess;
 
 if (require.main === module) {
-  var provider = process.argv[2];
-  var easy_access = new EasyAccess(provider, {
-    host:          process.env.HOST,
-    port:          process.env.PORT,
-    client_id:     process.env.CLIENT,
-    client_secret: process.env.SECRET,
-    client_grant:  process.env.CLIENT_GRANT,
-    config_file:   process.env.AUTH_FILE,
-    debug:         process.env.DEBUG,
-    reauthorize:   process.env.REAUTHORIZE,
-    scope:         process.env.SCOPE,
-    authorize_endpoint: process.env.AUTHORIZE_ENDPOINT,
-    token_endpoint: process.env.TOKEN_ENDPOINT,
+  opt_parser.script('easy_access');
+  opt_parser.option('provider', {
+    position: 0,
+    help: 'Remote OAuth2 identity provider to get access token for',
+    choices: Object.keys(providers),
   });
+  opt_parser.option('host', {
+    help: 'Remote host',
+  });
+  opt_parser.option('client_id', {
+    help: 'Client ID',
+    full: 'id',
+  });
+  opt_parser.option('client_secret', {
+    help: 'Client Secret',
+    full: 'secret',
+  });
+  opt_parser.option('scope', {
+    abbr: 's',
+    help: 'Scope to request authorization for (this is VERY application specific, see your provider\'s api documentation for more info)',
+  });
+  opt_parser.option('authorize_endpoint', {
+    help: 'Endpoint for authorizing users. (Usually something like /oauth/authorize)',
+    full: 'authorize-endpoint',
+  });
+  opt_parser.option('token_endpoint', {
+    help: 'Endpoint for acquiring access tokens. (Usually something like /oauth/access_token)',
+    full: 'token-endpoint',
+  });
+  opt_parser.option('file', {
+    abbr: 'f',
+    help: 'File to load access credentials from',
+  });
+  opt_parser.option('debug', {
+    abbr: 'd',
+    flag: true,
+    help: 'Print debugging information',
+  });
+  opt_parser.option('reauthorize', {
+    abbr: 'r',
+    flag: true,
+    help: 'Ignore cached access and refresh tokens and reauthorize manually',
+  });
+  opt_parser.option('client_grant', {
+    abbr: 'c',
+    help: 'Use a client_credentials grant (contains no user information, not supported by all identity providers)',
+    full: 'client-grant',
+  });
+  opt_parser.option('port', {
+    help: 'Local port to run websever (for OAuth2 callbacks). Defaults to:',
+    default: 3003,
+  });
+  var opts = opt_parser.parse();
+
+  try {
+    var easy_access = new EasyAccess(opts.provider, opts);
+  } catch(e) {
+    console.error(e);
+    console.error(opt_parser.getUsage());
+    process.exit(1);
+  }
   easy_access.get_access_token(function(token_data) {
     if (token_data && token_data.access_token) console.log(token_data.access_token);
   });
