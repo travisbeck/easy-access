@@ -1,0 +1,74 @@
+#! /usr/bin/env node
+
+var EasyAccess = require('..');
+var providers  = require('../lib/providers');
+var opt_parser = require('nomnom');
+
+opt_parser.script('easy_access');
+opt_parser.help('easy_access is a utility for acquiring access tokens for a number of OAuth2 identity providers');
+opt_parser.options({
+  provider: {
+    position: 0,
+    help: 'Remote OAuth2 identity provider to get access token for',
+    choices: Object.keys(providers),
+  },
+  host: {
+    help: 'Remote host',
+  },
+  client_id: {
+    help: 'Client ID',
+    full: 'id',
+  },
+  client_secret: {
+    help: 'Client Secret',
+    full: 'secret',
+  },
+  scope: {
+    abbr: 's',
+    help: 'Scope to request authorization for\n' +
+      '                          Note: This is VERY application specific\n' +
+      '                          See your provider\'s api documentation for more info',
+  },
+  authorize_endpoint: {
+    help: 'Endpoint for authorizing users. (Usually something like /oauth/authorize)',
+    full: 'authorize-endpoint',
+  },
+  token_endpoint: {
+    help: 'Endpoint for acquiring access tokens. (Usually something like /oauth/access_token)',
+    full: 'token-endpoint',
+  },
+  file: {
+    abbr: 'f',
+    help: 'File to load access credentials from',
+  },
+  debug: {
+    abbr: 'd',
+    flag: true,
+    help: 'Print debugging information',
+  },
+  reauthorize: {
+    abbr: 'r',
+    flag: true,
+    help: 'Ignore cached access and refresh tokens and reauthorize manually',
+  },
+  client_grant: {
+    abbr: 'c',
+    help: 'Use a client_credentials grant (contains no user information, not supported by all identity providers)',
+    full: 'client-grant',
+  },
+  port: {
+    help: 'Local port to run websever (for OAuth2 callbacks). Defaults to: 3003',
+  },
+});
+var opts = opt_parser.parse();
+
+try {
+  var easy_access = new EasyAccess(opts.provider, opts);
+} catch (e) {
+  console.error(e);
+  console.error(opt_parser.getUsage());
+  process.exit(1);
+}
+easy_access.get_access_token(function(token_data) {
+  if (token_data && token_data.access_token) console.log(token_data.access_token);
+});

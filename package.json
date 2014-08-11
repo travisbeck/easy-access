@@ -25,7 +25,7 @@
     "url": "git@github.shuttercorp.net:tbeck/easy-access.git"
   },
   "bin": {
-    "easy_access": "lib/index.js"
+    "easy_access": "bin/easy_access"
   },
   "author": "Travis Beck <travis@shutterstock.com>",
   "license": "Proprietary"
