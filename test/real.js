@@ -5,7 +5,7 @@ var EasyAccess = require('..');
 
 var test_credentials_for_provider = function(provider) {
   return function() {
-    if (fs.existsSync('.easy-access-' + provider + '.json')) {
+    if (fs.existsSync('.' + provider + '-easy-access.json')) {
       it('should get a real access token', function(done) {
         var easy_access = new EasyAccess(provider, {});
         easy_access.get_access_token(function(token_data) {
