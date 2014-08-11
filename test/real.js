@@ -20,3 +20,4 @@ describe('real google credentials', test_credentials_for_provider('google'));
 describe('real github credentials', test_credentials_for_provider('github'));
 describe('real dropbox credentials', test_credentials_for_provider('dropbox'));
 describe('real shutterstock credentials', test_credentials_for_provider('shutterstock'));
+describe('real linkedin credentials', test_credentials_for_provider('linkedin'));
