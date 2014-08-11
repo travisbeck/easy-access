@@ -5,6 +5,7 @@
   "main": "lib/index.js",
   "private": true,
   "dependencies": {
+    "findup-sync": "^0.1.3",
     "lodash": "^2.4.1",
     "nomnom": "^1.8.0",
     "open": "0.0.5",

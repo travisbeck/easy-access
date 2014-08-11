@@ -4,8 +4,14 @@ var EasyAccess = require('..');
 var providers  = require('../lib/providers');
 var opt_parser = require('nomnom');
 
+var provider_list = '';
+Object.keys(EasyAccess.providers()).sort().forEach(function(provider) {
+  provider_list += '    ' + provider + '\n';
+});
+
 opt_parser.script('easy_access');
-opt_parser.help('easy_access is a utility for acquiring access tokens for a number of OAuth2 identity providers');
+opt_parser.help('easy_access is a utility for acquiring access tokens for a number of OAuth2 identity providers\n\n' +
+  'Available OAuth2 providers:\n\n' + provider_list);
 opt_parser.options({
   provider: {
     position: 0,
@@ -57,7 +63,7 @@ opt_parser.options({
     full: 'client-grant',
   },
   port: {
-    help: 'Local port to run websever (for OAuth2 callbacks). Defaults to: 3003',
+    help: 'Local port to run webserver (for OAuth2 callbacks). Defaults to: 3003',
   },
 });
 var opts = opt_parser.parse();
