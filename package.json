@@ -2,7 +2,7 @@
   "name": "easy-access",
   "version": "0.0.2",
   "description": "Ridiculously easy OAuth2 authentication for scripts/installed apps and from the command-line for multiple providers",
-  "main": "index.js",
+  "main": "lib/index.js",
   "private": true,
   "dependencies": {
     "lodash": "^2.4.1",
@@ -11,15 +11,21 @@
     "prompt": "^0.2.13",
     "request": "^2.39.0"
   },
+  "devDependencies": {
+    "jscs": "^1.5.9",
+    "jshint": "^2.5.3",
+    "mocha": "^1.21.4",
+    "should": "^4.0.4"
+  },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "./node_modules/.bin/jshint lib test && ./node_modules/.bin/jscs lib test && ./node_modules/.bin/mocha --recursive --require should"
   },
   "repository": {
     "type": "git",
     "url": "git@github.shuttercorp.net:tbeck/easy-access.git"
   },
   "bin": {
-    "easy_access": "index.js"
+    "easy_access": "lib/index.js"
   },
   "author": "Travis Beck <travis@shutterstock.com>",
   "license": "Proprietary"
