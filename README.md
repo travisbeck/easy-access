@@ -8,7 +8,7 @@ Ridiculously easy OAuth2 authentication for command-line scripts and installed a
 ##### Build / Install:
 
 ```bash
-npm install -g
+npm install -g easy-access
 ```
 
 ##### First get access to the remote API
