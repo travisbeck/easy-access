@@ -59,6 +59,7 @@ opt_parser.options({
   },
   client_grant: {
     abbr: 'c',
+    flag: true,
     help: 'Use a client_credentials grant (contains no user information, not supported by all identity providers)',
     full: 'client-grant',
   },
