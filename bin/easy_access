@@ -63,6 +63,11 @@ opt_parser.options({
     help: 'Use a client_credentials grant (contains no user information, not supported by all identity providers)',
     full: 'client-grant',
   },
+  interactive: {
+    abbr: 'i',
+    flag: true,
+    help: 'Interactively prompt for client credentials at the command line',
+  },
   port: {
     help: 'Local port to run webserver (for OAuth2 callbacks). Defaults to: 3003',
   },
