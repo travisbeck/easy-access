@@ -3,7 +3,6 @@
   "version": "0.0.2",
   "description": "Ridiculously easy OAuth2 authentication for scripts/installed apps and from the command-line for multiple providers",
   "main": "lib/index.js",
-  "private": true,
   "dependencies": {
     "findup-sync": "^0.1.3",
     "lodash": "^2.4.1",
@@ -23,11 +22,10 @@
   },
   "repository": {
     "type": "git",
-    "url": "git@github.shuttercorp.net:tbeck/easy-access.git"
+    "url": "git@github.com:travisbeck/easy-access.git"
   },
   "bin": {
     "easy_access": "bin/easy_access"
   },
-  "author": "Travis Beck <travis@shutterstock.com>",
-  "license": "Proprietary"
+  "author": "Travis Beck <travis@brontosaurus.net>"
 }
