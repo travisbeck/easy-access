@@ -51,9 +51,27 @@ safely put this in a script or cron entry.
 ##### Use your stored credentials within node:
 
 ```node
-var EasyAccess = require(‘easy-access');
+var EasyAccess = require('easy-access');
 var easy_access = new EasyAccess('google');
 easy_access.get_access_token(function(token_data) {
   if (token_data && token_data.access_token) console.log(token_data.access_token);
 });
 ```
+
+
+## Adding your own custom providers
+
+1. Create a .easy-access.json file in your home directory or in your project directory with the following contents for the provider:
+
+```json
+{
+  "somedomain": {
+    "host": "somedomain.com",
+    "authorize_endpoint": "/oauth/authorize",
+    "token_endpoint": "/oauth/access_token",
+    "scope": "read write etc"
+  }
+}
+```
+
+2. Run `easy_access somedomain` as with any pre-registered provider.
